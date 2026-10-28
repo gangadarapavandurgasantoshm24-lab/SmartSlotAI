@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment & local credentials
+.env
+.env.*.local
+*.env.local
+
+# Runtime audit buffer
+data/audit_buffer.json
+data/*.log

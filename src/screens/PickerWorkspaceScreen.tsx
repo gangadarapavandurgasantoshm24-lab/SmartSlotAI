@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, ChevronRight, CircleAlert, Clock3, Flag, MapPin, PackageCheck, PauseCircle, Route, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Box, Check, CheckCircle2, ChevronRight, CircleAlert, Clock3, Flag, MapPin, PackageCheck, PauseCircle, Route, X } from 'lucide-react'
 import { skus } from '../data/mockData'
-import { getAvailableQuantity, getStockStatus } from '../data/inventoryUtils'
+import { getAvailableQuantity, getBoxId, getStockStatus } from '../data/inventoryUtils'
 import { useAppStore } from '../store/useAppStore'
 import { Badge, Button, Card, PageHeader } from '../components/ui'
 import { WarehouseScene } from '../components/digital-twin/WarehouseScene'
@@ -25,11 +25,14 @@ export function PickerWorkspaceScreen() {
   const selectPickStop = useAppStore((state) => state.selectPickStop)
   const nextPendingStop = useAppStore((state) => state.nextPendingStop)
   const reportPickIssue = useAppStore((state) => state.reportPickIssue)
+  const coPlacementOrders = useAppStore((state) => state.coPlacementOrders)
+  const completeCoPlacementOrder = useAppStore((state) => state.completeCoPlacementOrder)
   const [quantityOverride, setQuantityOverride] = useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [issueOpen, setIssueOpen] = useState(false)
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const [validationMessage, setValidationMessage] = useState('')
+  const [coPlacementMsg, setCoPlacementMsg] = useState('')
   const [issueType, setIssueType] = useState<BinIssueType>('Quantity Mismatch')
   const [issueDescription, setIssueDescription] = useState('')
   const [manualCount, setManualCount] = useState('')
@@ -123,50 +126,365 @@ export function PickerWorkspaceScreen() {
     {lastResult?.ok && <div className="picker-state-banner success-state"><CheckCircle2 size={17}/><div><strong>Pick confirmed · {lastResult.quantity} units picked</strong><span>{lastResult.skuId} from {lastResult.binId} · {lastResult.remaining} units remain in the shared bin record.</span></div><Badge>Success</Badge></div>}
     {latestWarning && <div className="picker-state-banner low-stock-state"><AlertTriangle size={17}/><div><strong>{latestWarning.remaining === 0 ? 'Empty bin · Replenishment attention' : 'Low stock · Replenishment attention'}</strong><span>{latestWarning.binId} now has {latestWarning.remaining} units, at or below its reorder point of {inventory.find((item) => item.binId === latestWarning.binId)?.reorderPoint}. No replenishment request was created.</span></div><Badge>{latestWarning.remaining === 0 ? 'Empty' : 'Low stock'}</Badge></div>}
 
+    {coPlacementMsg && (
+      <div className="picker-state-banner success-state">
+        <CheckCircle2 size={17} />
+        <div>
+          <strong>Re-Slotting Verified &amp; Completed!</strong>
+          <span>{coPlacementMsg}</span>
+        </div>
+        <Badge tone="green">Re-Slotted</Badge>
+      </div>
+    )}
+
+    {coPlacementOrders.filter((o) => o.status === 'Assigned to Picker').map((mission) => (
+      <Card key={mission.id} className="picker-reslot-mission-card">
+        <div className="reslot-header">
+          <div className="reslot-badge-row">
+            <span className="reslot-tag">🎯 SUPERVISOR RE-SLOTTING MISSION</span>
+            <code className="order-id-code">{mission.id}</code>
+            <Badge tone="purple">Cross-Selling Layout Lift: +{mission.predictedSalesLiftPercent}%</Badge>
+          </div>
+          <h3 className="reslot-title">{mission.title}</h3>
+          <p className="reslot-desc">
+            Supervisor Jordan Mitchell assigned you to relocate this item next to its complementary product to increase customer sales and minimize walking travel.
+          </p>
+        </div>
+
+        <div className="reslot-movement-box">
+          <div className="reslot-loc source">
+            <span className="loc-label">1. RETRIEVE FROM CURRENT BOX</span>
+            <strong className="loc-rack">Rack {mission.skuA.currentBin}</strong>
+            <span className="loc-box">Box ID: <strong>{mission.skuA.currentBoxId}</strong></span>
+            <span className="loc-item">{mission.skuA.name} ({mission.skuA.id})</span>
+          </div>
+
+          <div className="reslot-arrow">
+            <ArrowRight size={22} />
+            <small>RELOCATE</small>
+          </div>
+
+          <div className="reslot-loc target">
+            <span className="loc-label">2. PLACE INTO ADJACENT TARGET BOX</span>
+            <strong className="loc-rack highlight-target">Rack {mission.skuA.targetBin}</strong>
+            <span className="loc-box">Box ID: <strong>{mission.skuA.targetBoxId}</strong></span>
+            <span className="loc-item">Adjacent to: <strong>{mission.skuB.name}</strong> ({mission.skuB.targetBin})</span>
+          </div>
+        </div>
+
+        <div className="reslot-action-row">
+          <div className="reslot-benefit">
+            <span>⏱️ Saves <strong>{mission.pickerTimeSavedSeconds}s</strong> per pick &middot; 📈 Forecasts <strong>+{mission.predictedSalesLiftPercent}%</strong> bundle conversion</span>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => {
+              completeCoPlacementOrder(mission.id)
+              setCoPlacementMsg(`Relocated ${mission.skuA.name} into Box ${mission.skuA.targetBoxId} (${mission.skuA.targetBin}). Inventory and Analyst Studio updated!`)
+              setTimeout(() => setCoPlacementMsg(''), 8000)
+            }}
+          >
+            <Check size={16} />
+            <span>YES, CONFIRM RE-SLOT / CO-PLACEMENT EXECUTED</span>
+          </Button>
+        </div>
+      </Card>
+    ))}
+
     <div className="picker-main-grid">
-      <Card title={paused ? 'Pick paused' : complete ? 'Order complete' : `Current pick · Stop ${order.currentStopIndex + 1} of ${order.lines.length}`} subtitle={paused ? 'Awaiting supervisor review' : 'Check the bin label before confirming quantity'} className="active-pick-card">
+      <Card title={paused ? 'Pick paused' : complete ? 'Order complete' : `Current pick · Stop ${order.currentStopIndex + 1} of ${order.lines.length}`} subtitle={paused ? 'Awaiting supervisor review' : 'Check unique box barcode and rack label before confirming'} className="active-pick-card">
         {activeLine && activeSku && activeStock && targetBin ? <>
-          <div className="current-bin-heading"><div><span className="bin-location-label">CURRENT BIN</span><h2>{activeLine.binId}</h2><span>Zone {targetBin.zone} · Aisle {String(targetBin.aisle ?? 1).padStart(2, '0')} · Rack · Level {String(targetBin.level ?? 1).padStart(2, '0')}</span></div><Badge>{calculatedStatus}</Badge></div>
-          <div className="pick-product"><div className="product-symbol"><PackageCheck size={20}/></div><div><strong>{activeSku.name}</strong><span>{activeSku.id} · {activeSku.category}</span></div></div>
+          <div className="current-bin-heading">
+            <div>
+              <span className="bin-location-label">RACK LOCATION</span>
+              <h2>Rack {activeLine.binId}</h2>
+              <span>Zone {targetBin.zone} · Aisle {String(targetBin.aisle ?? 1).padStart(2, '0')} · Bay {String(targetBin.bay ?? 1).padStart(2, '0')} · Level {String(targetBin.level ?? 1).padStart(2, '0')} ({targetBin.face === 'back' ? 'Back' : 'Front'} Shelf)</span>
+            </div>
+            <div className="box-unique-badge">
+              <Box size={14}/>
+              <span>Unique Box ID: <strong>{activeLine.boxId || getBoxId(activeLine.binId, targetBin.level ?? 2, targetBin.face === 'back' ? 'B' : 'F')}</strong></span>
+            </div>
+            <Badge>{calculatedStatus}</Badge>
+          </div>
+          <div className="pick-product"><div className="product-symbol"><PackageCheck size={20}/></div><div><strong>{activeSku.name}</strong><span>{activeSku.id} · {activeSku.category} · Assigned by Manager</span></div></div>
           <div className="pick-quantities"><div><span>Required quantity</span><strong>{lineRemaining} <small>{activeSku.unit}{lineRemaining === 1 ? '' : 's'}</small></strong><small>{alreadyPicked} of {activeLine.requested} already picked</small></div><div><span>Available in bin</span><strong>{available} <small>{activeSku.unit}{available === 1 ? '' : 's'}</small></strong><small>On hand {activeStock.quantity} · reorder at {activeStock.reorderPoint}</small></div></div>
           <label className="pick-quantity-input">QUANTITY TO PICK<input type="number" min="1" max={Math.min(lineRemaining, available)} step="1" value={quantity} onChange={(event) => setQuantityOverride(event.target.value)} disabled={paused || complete}/></label>
-          <div className="pick-action-row"><Button onClick={openConfirmation} disabled={paused || complete || !activeStock.available}><Check size={15}/> Confirm Pick</Button><Button variant="secondary" onClick={() => { setIssueMessage(''); setManualCount(''); setIssueOpen(true) }} disabled={paused || complete}><Flag size={14}/> Report Bin Issue</Button></div>
+          <div className="pick-action-row"><Button onClick={openConfirmation} disabled={paused || complete || !activeStock.available}><Check size={15}/> YES, I CONFIRM PICK</Button><Button variant="secondary" onClick={() => { setIssueMessage(''); setManualCount(''); setIssueOpen(true) }} disabled={paused || complete}><Flag size={14}/> Report Bin Issue</Button></div>
           {!activeStock.available && <div className="pick-inline-error"><CircleAlert size={14}/> This bin is unavailable; picking cannot continue from this location.</div>}
-          <div className="pick-helper"><CircleAlert size={13}/>{activeStock.reserved > 0 ? `${activeStock.reserved} units are reserved and excluded from available stock.` : 'Confirming applies the pick to local demo inventory.'}</div>
-        </> : <div className="picker-empty"><PackageCheck size={24}/><strong>{complete ? 'All stops are complete.' : 'No active pick line is available.'}</strong><span>{complete ? 'The order has no remaining quantities.' : 'Check the assigned order lines and shared inventory records.'}</span></div>}
+          <div className="pick-helper"><CircleAlert size={13}/>{activeStock.reserved > 0 ? `${activeStock.reserved} units are reserved and excluded from available stock.` : 'Pressing YES decrements warehouse stock and updates Manager & Analyst Studio in real time.'}</div>
+        </> : <div className="picker-empty"><PackageCheck size={24}/><strong>{complete ? 'All stops are complete.' : 'No active pick line is available.'}</strong><span>{complete ? 'The order has no remaining quantities.' : 'Waiting for Warehouse Manager Jordan Mitchell to dispatch pick task.'}</span></div>}
       </Card>
 
-      <Card title="Warehouse digital twin" subtitle={`${targetBin ? `Target bin ${targetBin.id} · ${activeSku?.name ?? ''}` : 'Tap a route stop to locate it'}`} className="picker-map-card" action={<span className="picker-view-label">ISOMETRIC VIEW</span>}>
+      <Card title="Warehouse digital twin" subtitle={`${targetBin ? `Target Rack ${targetBin.id} · Box ${activeLine?.boxId || getBoxId(targetBin.id)}` : 'Tap a route stop to locate it'}`} className="picker-map-card" action={<span className="picker-view-label">ISOMETRIC VIEW</span>}>
         <div className="picker-canvas-wrap"><WarehouseScene bins={bins} inventory={inventory} selectedBinId={selectedBinId} onSelect={selectFromScene} resetVersion={0} zoomVersion={0} focusVersion={0} focusBin={sceneFocusBin}/><div className="picker-map-target"><MapPin size={12}/>{targetBin?.id ?? 'No target'}</div><div className="picker-map-legend"><span><i className="legend-healthy"/> Healthy</span><span><i className="legend-low"/> Low stock</span><span><i className="legend-empty"/> Empty</span><span><i className="legend-selected"/> Selected</span></div></div>
         <div className="picker-route-header"><span><Route size={14}/> Your picking route</span><span>{completedStops}/{order.lines.length} done</span></div>
-        <div className="picker-route-list">{order.lines.map((line, index) => { const sku = skus.find((item) => item.id === line.skuId); const done = line.picked >= line.requested; const current = index === order.currentStopIndex && !done; return <button key={line.id} className={`picker-route-stop ${current ? 'current' : ''} ${done ? 'done' : ''}`} onClick={() => { selectPickStop(line.id); setQuantityOverride(null) }} disabled={paused || complete || done}><span className="route-stop-number">{done ? <Check size={12}/> : index + 1}</span><span className="route-stop-copy"><strong>{line.binId}</strong><small>{sku?.name ?? line.skuId} · {line.picked}/{line.requested} picked</small></span><span className="route-stop-status">{done ? 'Complete' : current ? 'Current stop' : 'Next stop'}</span>{!done && <ChevronRight size={13}/>}</button>})}</div>
+        <div className="picker-route-list">{order.lines.map((line, index) => { const sku = skus.find((item) => item.id === line.skuId); const done = line.picked >= line.requested; const current = index === order.currentStopIndex && !done; return <button key={line.id} className={`picker-route-stop ${current ? 'current' : ''} ${done ? 'done' : ''}`} onClick={() => { selectPickStop(line.id); setQuantityOverride(null) }} disabled={paused || complete || done}><span className="route-stop-number">{done ? <Check size={12}/> : index + 1}</span><span className="route-stop-copy"><strong>Rack {line.binId} <small className="inline-box-id">({line.boxId || getBoxId(line.binId)})</small></strong><small>{sku?.name ?? line.skuId} · {line.picked}/{line.requested} picked</small></span><span className="route-stop-status">{done ? 'Complete' : current ? 'Current stop' : 'Next stop'}</span>{!done && <ChevronRight size={13}/>}</button>})}</div>
         <div className="picker-route-footer"><span><Clock3 size={12}/> {order.picker} · Due {order.due}</span><Button variant="quiet" onClick={() => { nextPendingStop(); setQuantityOverride(null) }} disabled={paused || complete || remainingStops < 2}>Next pending stop <ArrowRight size={13}/></Button></div>
       </Card>
     </div>
 
     <div className="picker-lower-grid">
       <Card title="Order items" subtitle={`${order.id} · ${order.lines.length} items · ${totalUnits} units`}>
-        <div className="picker-table-scroll"><table className="picker-items-table"><thead><tr><th>SKU</th><th>PRODUCT</th><th>REQ.</th><th>PICKED</th><th>STATUS</th></tr></thead><tbody>{order.lines.map((line, index) => { const sku = skus.find((item) => item.id === line.skuId); const done = line.picked >= line.requested; const current = index === order.currentStopIndex && !done; return <tr key={line.id} className={current ? 'current-row' : ''} onClick={() => !done && selectPickStop(line.id)} tabIndex={done || paused || complete ? -1 : 0} onKeyDown={(event) => { if (event.key === 'Enter' && !done) selectPickStop(line.id) }}><td><strong>{line.skuId}</strong></td><td>{sku?.name ?? 'Unknown item'}<small>{line.binId}</small></td><td>{line.requested}</td><td>{line.picked}/{line.requested}</td><td>{done ? <Badge>Picked</Badge> : current ? <Badge>Current pick</Badge> : <Badge>Pending</Badge>}</td></tr>})}</tbody><tfoot><tr><td colSpan={3}>{order.lines.length} items shown · Assigned to {order.picker}</td><td colSpan={2}>{pickedUnits} / {totalUnits} units picked</td></tr></tfoot></table></div>
+        <div className="picker-table-scroll"><table className="picker-items-table"><thead><tr><th>SKU</th><th>PRODUCT & BOX ID</th><th>REQ.</th><th>PICKED</th><th>STATUS</th></tr></thead><tbody>{order.lines.map((line, index) => { const sku = skus.find((item) => item.id === line.skuId); const done = line.picked >= line.requested; const current = index === order.currentStopIndex && !done; return <tr key={line.id} className={current ? 'current-row' : ''} onClick={() => !done && selectPickStop(line.id)} tabIndex={done || paused || complete ? -1 : 0} onKeyDown={(event) => { if (event.key === 'Enter' && !done) selectPickStop(line.id) }}><td><strong>{line.skuId}</strong></td><td>{sku?.name ?? 'Unknown item'}<small>Rack {line.binId} · <strong>{line.boxId || getBoxId(line.binId)}</strong></small></td><td>{line.requested}</td><td>{line.picked}/{line.requested}</td><td>{done ? <Badge>Picked</Badge> : current ? <Badge>Current pick</Badge> : <Badge>Pending</Badge>}</td></tr>})}</tbody><tfoot><tr><td colSpan={3}>{order.lines.length} items shown · Assigned to {order.picker}</td><td colSpan={2}>{pickedUnits} / {totalUnits} units picked</td></tr></tfoot></table></div>
       </Card>
       <Card title="Pick activity" subtitle="Recent actions on this order" className="picker-activity-card">
-        {lastResult?.ok ? <div className="picker-activity-item"><span className="activity-success-icon"><Check size={13}/></span><div><strong>{lastResult.quantity} units picked · {lastResult.binId}</strong><small>{lastResult.skuId} · {currentMovement?.id ?? 'Movement recorded'}</small></div></div> : <div className="picker-activity-item"><span className="activity-success-icon neutral"><Clock3 size={13}/></span><div><strong>Order assigned to {order.picker}</strong><small>Pick order {order.id} · Due {order.due}</small></div></div>}
+        {lastResult?.ok ? <div className="picker-activity-item"><span className="activity-success-icon"><Check size={13}/></span><div><strong>{lastResult.quantity} units picked · Rack {lastResult.binId}</strong><small>{lastResult.skuId} · {currentMovement?.id ?? 'Movement recorded'}</small></div></div> : <div className="picker-activity-item"><span className="activity-success-icon neutral"><Clock3 size={13}/></span><div><strong>Order assigned to {order.picker}</strong><small>Pick order {order.id} · Due {order.due}</small></div></div>}
         {selectedIssue && <div className="picker-activity-item"><span className="activity-issue-icon"><Flag size={13}/></span><div><strong>Issue reported · {selectedIssue.type}</strong><small>{selectedIssue.binId} · {new Date(selectedIssue.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div></div>}
         {currentMovement && <div className="picker-activity-meta">Movement {currentMovement.id} saved to inventory history.</div>}
         {issueMessage && <div className="pick-inline-error">{issueMessage}</div>}
       </Card>
     </div>
 
-    {confirmOpen && activeLine && activeSku && activeStock && <QuantityConfirmationDialog skuName={activeSku.name} skuId={activeSku.id} binId={activeLine.binId} requested={lineRemaining} alreadyPicked={alreadyPicked} available={available} onHand={activeStock.quantity} reorderPoint={activeStock.reorderPoint} quantity={quantity} setQuantity={setQuantityOverride} error={validationMessage} submitting={submitting} onClose={() => { setConfirmOpen(false); setValidationMessage('') }} onConfirm={handleConfirmPick}/>}
+    {confirmOpen && activeLine && activeSku && activeStock && <QuantityConfirmationDialog skuName={activeSku.name} skuId={activeSku.id} binId={activeLine.binId} boxId={activeLine.boxId || getBoxId(activeLine.binId)} requested={lineRemaining} alreadyPicked={alreadyPicked} available={available} onHand={activeStock.quantity} reorderPoint={activeStock.reorderPoint} quantity={quantity} setQuantity={setQuantityOverride} error={validationMessage} submitting={submitting} onClose={() => { setConfirmOpen(false); setValidationMessage('') }} onConfirm={handleConfirmPick}/>}
     {issueOpen && activeLine && activeSku && <ReportIssueDialog binId={activeLine.binId} skuName={activeSku.name} type={issueType} setType={setIssueType} description={issueDescription} setDescription={setIssueDescription} manualCount={manualCount} setManualCount={setManualCount} error={issueMessage} onClose={() => setIssueOpen(false)} onSubmit={handleReportIssue}/>}
   </>
 }
 
-function QuantityConfirmationDialog({ skuName, skuId, binId, requested, alreadyPicked, available, onHand, reorderPoint, quantity, setQuantity, error, submitting, onClose, onConfirm }: { skuName: string; skuId: string; binId: string; requested: number; alreadyPicked: number; available: number; onHand: number; reorderPoint: number; quantity: string; setQuantity: (value: string) => void; error: string; submitting: boolean; onClose: () => void; onConfirm: () => void }) {
-  const amount = Number(quantity)
-  const projectionValid = Number.isInteger(amount) && amount > 0 && amount <= available && amount <= requested
-  return <div className="picker-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-pick-title"><header><div className="dialog-icon"><PackageCheck size={18}/></div><div><h2 id="confirm-pick-title">Confirm pick quantity</h2><p>Order {skuId} · Review this pick before applying it.</p></div><button className="dialog-close" onClick={onClose} aria-label="Close dialog"><X size={16}/></button></header><div className="dialog-product"><strong>{skuName}</strong><span>{skuId} <i/> Bin {binId}</span></div><div className="dialog-stock-grid"><div><span>Available</span><b>{available} units</b></div><div><span>Required</span><b>{requested} units</b></div><div><span>Already picked</span><b>{alreadyPicked}/{alreadyPicked + requested}</b></div></div><label className="dialog-quantity">Quantity to pick<input autoFocus type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} aria-invalid={Boolean(error)}/></label><div className={`projected-balance ${projectionValid && onHand - amount <= reorderPoint ? 'warning' : ''}`}><div><span>Projected balance after this pick</span><strong>{projectionValid ? `${onHand - amount} remaining` : 'Cannot fulfill this quantity'}</strong></div>{projectionValid && <small><AlertTriangle size={12}/>{onHand - amount <= reorderPoint ? `This leaves ${onHand - amount} units, at or below the reorder point of ${reorderPoint}. A low-stock warning will be shown.` : 'Inventory and route progress update after confirmation.'}</small>}</div>{error && <div className="dialog-validation" role="alert"><CircleAlert size={15}/><span>{error}<small>Nothing changed. Correct the quantity and try again.</small></span></div>}<footer><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={onConfirm} disabled={submitting}><Check size={14}/>{submitting ? 'Confirming…' : 'Confirm Pick'}</Button></footer></section></div>
+interface QuantityConfirmationDialogProps {
+  skuName: string
+  skuId: string
+  binId: string
+  boxId: string
+  requested: number
+  alreadyPicked: number
+  available: number
+  onHand: number
+  reorderPoint: number
+  quantity: string
+  setQuantity: (value: string) => void
+  error: string
+  submitting: boolean
+  onClose: () => void
+  onConfirm: () => void
 }
 
-function ReportIssueDialog({ binId, skuName, type, setType, description, setDescription, manualCount, setManualCount, error, onClose, onSubmit }: { binId: string; skuName: string; type: BinIssueType; setType: (value: BinIssueType) => void; description: string; setDescription: (value: string) => void; manualCount: string; setManualCount: (value: string) => void; error: string; onClose: () => void; onSubmit: () => void }) {
-  return <div className="picker-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="picker-dialog issue-dialog" role="dialog" aria-modal="true" aria-labelledby="report-issue-title"><header><div className="dialog-icon issue"><Flag size={17}/></div><div><h2 id="report-issue-title">Report bin issue</h2><p>Picking will pause until a supervisor reviews the report.</p></div><button className="dialog-close" onClick={onClose} aria-label="Close dialog"><X size={16}/></button></header><div className="dialog-product"><strong>{binId}</strong><span>{skuName} <i/> {binId}</span></div><fieldset className="issue-options"><legend>Issue type</legend>{issueTypes.map((option) => <label key={option}><input type="radio" name="issue-type" checked={type === option} onChange={() => setType(option)}/><span>{option}</span></label>)}</fieldset>{type === 'Quantity Mismatch' && <label className="issue-count">Manual count (optional)<input type="number" min="0" step="1" value={manualCount} onChange={(event) => setManualCount(event.target.value)} placeholder="Enter the units you counted"/></label>}<label className="issue-description">Notes (optional)<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe what you found at this bin..." rows={3}/></label>{error && <div className="dialog-validation" role="alert">{error}</div>}<div className="issue-stock-note"><AlertTriangle size={14}/><span>Reporting records the discrepancy only. Shared inventory will remain unchanged while the task is paused.</span></div><footer><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={onSubmit}><Flag size={14}/> Submit report</Button></footer></section></div>
+function QuantityConfirmationDialog({
+  skuName,
+  skuId,
+  binId,
+  boxId,
+  requested,
+  alreadyPicked,
+  available,
+  onHand,
+  reorderPoint,
+  quantity,
+  setQuantity,
+  error,
+  submitting,
+  onClose,
+  onConfirm,
+}: QuantityConfirmationDialogProps) {
+  const amount = Number(quantity)
+  const projectionValid = Number.isInteger(amount) && amount > 0 && amount <= available && amount <= requested
+
+  return (
+    <div
+      className="picker-modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section className="picker-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-pick-title">
+        <header>
+          <div className="dialog-icon">
+            <PackageCheck size={18} />
+          </div>
+          <div>
+            <h2 id="confirm-pick-title">Confirm Pick from Rack</h2>
+            <p>Rack {binId} · Box {boxId}</p>
+          </div>
+          <button className="dialog-close" onClick={onClose} aria-label="Close dialog">
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="dialog-product">
+          <strong>{skuName}</strong>
+          <span>
+            {skuId} <i /> Rack {binId} <i /> <strong>{boxId}</strong>
+          </span>
+        </div>
+
+        <div className="dialog-stock-grid">
+          <div>
+            <span>Available in Rack</span>
+            <b>{available} units</b>
+          </div>
+          <div>
+            <span>Required to Pick</span>
+            <b>{requested} units</b>
+          </div>
+          <div>
+            <span>Already Picked</span>
+            <b>{alreadyPicked}/{alreadyPicked + requested}</b>
+          </div>
+        </div>
+
+        <label className="dialog-quantity">
+          Quantity to pick
+          <input
+            autoFocus
+            type="number"
+            min="1"
+            step="1"
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            aria-invalid={Boolean(error)}
+          />
+        </label>
+
+        <div className={`projected-balance ${projectionValid && onHand - amount <= reorderPoint ? 'warning' : ''}`}>
+          <div>
+            <span>Projected balance after this pick</span>
+            <strong>{projectionValid ? `${onHand - amount} remaining` : 'Cannot fulfill this quantity'}</strong>
+          </div>
+          {projectionValid && (
+            <small>
+              <AlertTriangle size={12} />
+              {onHand - amount <= reorderPoint
+                ? `This leaves ${onHand - amount} units, at or below the reorder point of ${reorderPoint}. Manager will receive low-stock notification.`
+                : 'Stock and route progress update across Manager and Analyst Studio instantly.'}
+            </small>
+          )}
+        </div>
+
+        {error && (
+          <div className="dialog-validation" role="alert">
+            <CircleAlert size={15} />
+            <span>
+              {error}
+              <small>Nothing changed. Correct the quantity and try again.</small>
+            </span>
+          </div>
+        )}
+
+        <footer>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={onConfirm} disabled={submitting}>
+            <Check size={14} />
+            {submitting ? 'Confirming…' : 'YES, I CONFIRM PICK'}
+          </Button>
+        </footer>
+      </section>
+    </div>
+  )
+}
+
+interface ReportIssueDialogProps {
+  binId: string
+  skuName: string
+  type: BinIssueType
+  setType: (value: BinIssueType) => void
+  description: string
+  setDescription: (value: string) => void
+  manualCount: string
+  setManualCount: (value: string) => void
+  error: string
+  onClose: () => void
+  onSubmit: () => void
+}
+
+function ReportIssueDialog({
+  binId,
+  skuName,
+  type,
+  setType,
+  description,
+  setDescription,
+  manualCount,
+  setManualCount,
+  error,
+  onClose,
+  onSubmit,
+}: ReportIssueDialogProps) {
+  return (
+    <div
+      className="picker-modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section className="picker-dialog issue-dialog" role="dialog" aria-modal="true" aria-labelledby="report-issue-title">
+        <header>
+          <div className="dialog-icon issue">
+            <Flag size={17} />
+          </div>
+          <div>
+            <h2 id="report-issue-title">Report bin issue</h2>
+            <p>Picking will pause until a supervisor reviews the report.</p>
+          </div>
+          <button className="dialog-close" onClick={onClose} aria-label="Close dialog">
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="dialog-product">
+          <strong>{binId}</strong>
+          <span>{skuName} <i /> {binId}</span>
+        </div>
+
+        <fieldset className="issue-options">
+          <legend>Issue type</legend>
+          {issueTypes.map((option) => (
+            <label key={option}>
+              <input
+                type="radio"
+                name="issue-type"
+                checked={type === option}
+                onChange={() => setType(option)}
+              />
+              <span>{option}</span>
+            </label>
+          ))}
+        </fieldset>
+
+        {type === 'Quantity Mismatch' && (
+          <label className="issue-count">
+            Manual count (optional)
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={manualCount}
+              onChange={(event) => setManualCount(event.target.value)}
+              placeholder="Enter the units you counted"
+            />
+          </label>
+        )}
+
+        <label className="issue-description">
+          Notes (optional)
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Describe what you found at this bin..."
+            rows={3}
+          />
+        </label>
+
+        {error && (
+          <div className="dialog-validation" role="alert">
+            {error}
+          </div>
+        )}
+
+        <div className="issue-stock-note">
+          <AlertTriangle size={14} />
+          <span>Reporting records the discrepancy only. Shared inventory will remain unchanged while the task is paused.</span>
+        </div>
+
+        <footer>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit}>
+            <Flag size={14} /> Submit report
+          </Button>
+        </footer>
+      </section>
+    </div>
+  )
 }

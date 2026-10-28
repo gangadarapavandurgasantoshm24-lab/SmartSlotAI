@@ -1,11 +1,11 @@
 import type { Bin, InventoryItem, OptimizationResult, PickOrder, PickingTask, SKU, SupplierRequest, Warehouse } from '../types'
 
-export const warehouses: Warehouse[] = [{ id: 'WH-01', name: 'West Coast Distribution Center', location: 'Oakland, CA', zones: 4, capacity: 18400, utilization: 78.4 }]
+export const warehouses: Warehouse[] = [{ id: 'WH-01', name: 'Brazilian E-Commerce Fulfillment Hub', location: 'São Paulo Logistics DC', zones: 4, capacity: 18400, utilization: 78.4 }]
 export const skus: SKU[] = [
-  { id: 'SKU-2084', name: 'Nitrile gloves · Size M', category: 'Safety', unit: 'box', reorderPoint: 60, supplier: 'Medline Industries', optimizationProfile: { weeklyPickFrequency: 184, demandClass: 'A', dimensionsCm: [30, 25, 15], weightKg: 0.5, handling: 'standard', affinitySkuIds: ['SKU-1102', 'SKU-3401'] } },
-  { id: 'SKU-1102', name: 'Thermal labels · 4 × 6 in', category: 'Packaging', unit: 'roll', reorderPoint: 30, supplier: 'Avery Dennison', optimizationProfile: { weeklyPickFrequency: 112, demandClass: 'A', dimensionsCm: [34, 29, 16], weightKg: 0.8, handling: 'standard', affinitySkuIds: ['SKU-2084', 'SKU-3401'] } },
-  { id: 'SKU-3401', name: 'Shipping carton · 12 × 10', category: 'Packaging', unit: 'case', reorderPoint: 18, supplier: 'Uline', optimizationProfile: { weeklyPickFrequency: 48, demandClass: 'B', dimensionsCm: [80, 30, 25], weightKg: 0.7, handling: 'oversize', affinitySkuIds: ['SKU-2084', 'SKU-1102'] } },
-  { id: 'SKU-0917', name: 'Pallet wrap · Clear 18 in', category: 'Shipping', unit: 'roll', reorderPoint: 16, supplier: 'Berry Global', optimizationProfile: { weeklyPickFrequency: 24, demandClass: 'C', dimensionsCm: [50, 30, 35], weightKg: 2.1, handling: 'standard', affinitySkuIds: ['SKU-3401'] } },
+  { id: 'SKU-2084', name: 'Furniture Decor · Luminary (aca2eb7d)', category: 'Furniture Decor', unit: 'box', reorderPoint: 60, supplier: 'Mobly Decor / Olist', optimizationProfile: { weeklyPickFrequency: 527, demandClass: 'A', dimensionsCm: [30, 25, 15], weightKg: 0.5, handling: 'standard', affinitySkuIds: ['SKU-1102', 'SKU-3401'] } },
+  { id: 'SKU-1102', name: 'Bed Bath Table · Duvet Set (99a4788c)', category: 'Bed Bath Table', unit: 'roll', reorderPoint: 30, supplier: 'Santista / Olist', optimizationProfile: { weeklyPickFrequency: 488, demandClass: 'A', dimensionsCm: [34, 29, 16], weightKg: 0.8, handling: 'standard', affinitySkuIds: ['SKU-2084', 'SKU-3401'] } },
+  { id: 'SKU-3401', name: 'Garden Tools · Trimmer Cart (422879e1)', category: 'Garden Tools', unit: 'case', reorderPoint: 18, supplier: 'Tramontina / Olist', optimizationProfile: { weeklyPickFrequency: 484, demandClass: 'B', dimensionsCm: [80, 30, 25], weightKg: 0.7, handling: 'oversize', affinitySkuIds: ['SKU-2084', 'SKU-1102'] } },
+  { id: 'SKU-0917', name: 'Computers · Fast USB Hub (d1c42706)', category: 'Computers & Accessories', unit: 'roll', reorderPoint: 16, supplier: 'Multilaser / Olist', optimizationProfile: { weeklyPickFrequency: 343, demandClass: 'C', dimensionsCm: [50, 30, 35], weightKg: 2.1, handling: 'standard', affinitySkuIds: ['SKU-3401'] } },
 ]
 export const bins: Bin[] = [
   { id: 'A-01-01', zone: 'A', skuId: 'SKU-2084', quantity: 46, capacity: 72, status: 'Healthy', x: 0, y: 0, aisle: 1, bay: 1, level: 1, face: 'front' },

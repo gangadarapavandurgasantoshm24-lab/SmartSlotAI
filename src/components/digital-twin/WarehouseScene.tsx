@@ -6,6 +6,7 @@ import { OrbitControls as ThreeOrbitControls } from 'three/examples/jsm/controls
 import type { Bin, InventoryItem } from '../../types'
 import { getStockStatus } from '../../data/inventoryUtils'
 import { warehouseStockColors } from './binStatus'
+import { BinDetailModal } from './BinDetailModal'
 
 const binGeometry = new BoxGeometry(0.82, 0.3, 0.94)
 const labelTextures = new Map<string, CanvasTexture>()
@@ -179,9 +180,55 @@ function CameraControls({ resetVersion, zoomVersion, focusVersion, focusBin }: {
   return null
 }
 
-export function WarehouseScene({ bins, inventory, selectedBinId, onSelect, resetVersion, zoomVersion, focusVersion, focusBin }: { bins: Bin[]; inventory: InventoryItem[]; selectedBinId: string; onSelect: (id: string) => void; resetVersion: number; zoomVersion: number; focusVersion: number; focusBin: Bin | undefined }) {
-  return <Canvas fallback={<div className="scene-error">3D rendering is unavailable in this browser. Inventory inspection is still available in the bin inspector.</div>} shadows dpr={[1, 1.6]} camera={{ position: [21, 18, 24], fov: 43, near: 0.1, far: 120 }} gl={{ antialias: true, powerPreference: 'high-performance' }}>
-    <CameraControls resetVersion={resetVersion} zoomVersion={zoomVersion} focusVersion={focusVersion} focusBin={focusBin} />
-    <SceneContents bins={bins} stock={inventory} selectedBinId={selectedBinId} onSelect={onSelect} />
-  </Canvas>
+export function WarehouseScene({
+  bins,
+  inventory,
+  selectedBinId,
+  onSelect,
+  resetVersion,
+  zoomVersion,
+  focusVersion,
+  focusBin,
+}: {
+  bins: Bin[]
+  inventory: InventoryItem[]
+  selectedBinId: string
+  onSelect: (id: string) => void
+  resetVersion: number
+  zoomVersion: number
+  focusVersion: number
+  focusBin?: Bin
+}) {
+  const [modalBinId, setModalBinId] = useState<string | null>(null)
+
+  function handleSelect(id: string) {
+    onSelect(id)
+    setModalBinId(id)
+  }
+
+  return (
+    <div className="warehouse-scene-wrapper" style={{ position: 'relative', width: '100%', height: '100%', minHeight: '380px' }}>
+      <Canvas
+        fallback={
+          <div className="scene-error">
+            3D rendering is unavailable in this browser. Inventory inspection is still available in the bin inspector.
+          </div>
+        }
+        shadows
+        dpr={[1, 1.6]}
+        camera={{ position: [21, 18, 24], fov: 43, near: 0.1, far: 120 }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+      >
+        <CameraControls resetVersion={resetVersion} zoomVersion={zoomVersion} focusVersion={focusVersion} focusBin={focusBin} />
+        <SceneContents bins={bins} stock={inventory} selectedBinId={selectedBinId} onSelect={handleSelect} />
+      </Canvas>
+
+      {modalBinId && (
+        <BinDetailModal
+          binId={modalBinId}
+          onClose={() => setModalBinId(null)}
+        />
+      )}
+    </div>
+  )
 }

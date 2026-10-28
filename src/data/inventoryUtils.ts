@@ -22,3 +22,8 @@ export function searchWarehouseBins(query: string, bins: Bin[], inventory: Inven
     return bin.id.toLowerCase().includes(term) || sku?.id.toLowerCase().includes(term) || sku?.name.toLowerCase().includes(term)
   }).slice(0, limit)
 }
+
+export function getBoxId(binId: string, level = 2, face = 'F'): string {
+  const clean = binId.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  return `BOX-${clean}-L${level}${face}`
+}

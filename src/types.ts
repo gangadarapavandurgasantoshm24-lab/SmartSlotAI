@@ -1,4 +1,5 @@
 export type ScreenId = 'dashboard' | 'warehouse' | 'picker' | 'suppliers' | 'optimization' | 'analytics' | 'analyst'
+export type UserRole = 'picker' | 'supplier' | 'manager' | 'analyst'
 export type Status = 'Healthy' | 'Low stock' | 'Critical' | 'Empty' | 'Unavailable' | 'In transit' | 'Pending' | 'Approved' | 'At risk' | 'Optimal'
 export interface Warehouse { id: string; name: string; location: string; zones: number; capacity: number; utilization: number }
 export interface Bin { id: string; zone: string; skuId: string; quantity: number; capacity: number; status: Status; x: number; y: number; aisle?: number; bay?: number; level?: number; face?: 'front' | 'back'; optimizationConstraints?: BinOptimizationConstraints }
@@ -17,7 +18,7 @@ export interface InventoryItem { skuId: string; binId: string; quantity: number;
 export interface StockMovement { id: string; binId: string; skuId: string; type: 'pick' | 'receive'; quantity: number; timestamp: string; source: 'digital-twin-demo' | 'picker-workspace' }
 export interface PickingTask { id: string; priority: 'High' | 'Normal' | 'Low'; status: 'Ready' | 'In progress' | 'Complete'; items: number; stops: number; picker: string; due: string }
 export type PickOrderStatus = 'Ready' | 'In progress' | 'Paused' | 'Complete'
-export interface PickOrderLine { id: string; skuId: string; binId: string; requested: number; picked: number }
+export interface PickOrderLine { id: string; skuId: string; binId: string; requested: number; picked: number; boxId?: string; notes?: string }
 export interface PickOrder { id: string; priority: 'High' | 'Normal' | 'Low'; status: PickOrderStatus; picker: string; assignedTo: string; due: string; currentStopIndex: number; lines: PickOrderLine[] }
 export type BinIssueType = 'Empty Bin' | 'Damaged Product' | 'Incorrect Location' | 'Quantity Mismatch' | 'Other'
 export interface PickBinIssue { id: string; taskId: string; binId: string; skuId: string; type: BinIssueType; description: string; manualCount?: number; timestamp: string; status: 'Submitted' }
@@ -30,3 +31,57 @@ export interface ReplenishmentReceipt { id: string; requestId: string; skuId: st
 export interface ReplenishmentRequest { id: string; skuId: string; binId: string; quantity: number; supplier: string; createdAt: string; expectedDate: string; status: ReplenishmentStatus; confirmedQuantity: number | null; responseNote: string; dispatchedAt?: string; receipts: ReplenishmentReceipt[]; timeline: ReplenishmentEvent[] }
 export interface ReplenishmentResult { ok: boolean; message: string; request?: ReplenishmentRequest; receipt?: ReplenishmentReceipt }
 export interface OptimizationResult { id: string; title: string; moves: number; travelSaved: string; efficiency: number; status: Status }
+
+export interface LiveSystemAlert {
+  id: string
+  timestamp: string
+  title: string
+  detail: string
+  source: 'manager' | 'supplier' | 'picker' | 'analyst'
+  tone?: 'blue' | 'green' | 'amber' | 'purple'
+}
+
+export interface AnalystLiveMetrics {
+  ordersFulfilled: number
+  unitsShipped: number
+  pickAccuracy: number
+  onTimeDispatch: number
+  goldenZoneEfficiency: number
+  totalPicksCount: number
+}
+
+export type CoPlacementStatus = 'Proposed by Analyst' | 'Approved by Manager' | 'Assigned to Picker' | 'Completed by Picker'
+
+export interface CoPlacementOrder {
+  id: string
+  title: string
+  category: string
+  skuA: {
+    id: string
+    name: string
+    currentBin: string
+    currentBoxId: string
+    targetBin: string
+    targetBoxId: string
+  }
+  skuB: {
+    id: string
+    name: string
+    currentBin: string
+    currentBoxId: string
+    targetBin: string
+    targetBoxId: string
+  }
+  initialDistanceMeters: number
+  targetDistanceMeters: number
+  predictedSalesLiftPercent: number
+  predictedMonthlyRevenue: number
+  confidenceScore: number
+  pickerTimeSavedSeconds: number
+  rationale: string
+  status: CoPlacementStatus
+  createdAt: string
+  managerApprovedAt?: string
+  pickerCompletedAt?: string
+  assignedPicker?: string
+}
