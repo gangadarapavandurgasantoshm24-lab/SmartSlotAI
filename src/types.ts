@@ -625,3 +625,117 @@ export interface MultiStopOptimizationResult {
   generatedAt: string
 }
 
+// ==========================================
+// MULTI-WAREHOUSE NETWORK ANALYTICS TYPES
+// ==========================================
+
+export interface AnalyticsFilterState {
+  dateRange: '7d' | '30d' | '90d' | 'all'
+  warehouseId: string
+  city: string
+  skuId: string
+  category: string
+  stockStatus: 'all' | 'healthy' | 'low_stock' | 'empty' | 'critical'
+  transferStatus: 'all' | 'pending' | 'in_transit' | 'received' | 'discrepancy'
+}
+
+export interface AnalyticsKpiSummary {
+  totalOnHandUnits: number
+  totalReservedUnits: number
+  totalAvailableUnits: number
+  totalInTransitUnits: number
+  totalPipelineUnits: number
+  distinctSkuCount: number
+  activeWarehouseCount: number
+  lowStockSkuCount: number
+  networkStockoutRiskSkuCount: number
+  averageCapacityUtilization: number
+  totalCapacityUnits: number
+  activeTransferCount: number
+  activeReplenishmentCount: number
+  totalDiscrepancyCount: number
+}
+
+export interface StorageZoneOccupancy {
+  zone: string
+  totalBins: number
+  occupiedBins: number
+  occupancyPct: number
+  onHandUnits: number
+  isGoldenZone: boolean
+}
+
+export interface WarehouseAnalyticsBreakdown {
+  warehouseId: string
+  warehouseName: string
+  city: string
+  location: string
+  status: string
+  onHandUnits: number
+  reservedUnits: number
+  availableUnits: number
+  inTransitIncomingUnits: number
+  inTransitOutgoingUnits: number
+  distinctSkuCount: number
+  totalBins: number
+  occupiedBins: number
+  vacantBins: number
+  totalCapacityUnits: number
+  capacityUtilizationPct: number
+  zoneBreakdown: StorageZoneOccupancy[]
+  lowStockCount: number
+  criticalCount: number
+}
+
+export interface CategoryAnalyticsDistribution {
+  categoryName: string
+  onHandUnits: number
+  availableUnits: number
+  reservedUnits: number
+  inTransitUnits: number
+  distinctSkuCount: number
+  shareOfTotalUnitsPct: number
+  lowStockCount: number
+  classACount: number
+  classBCount: number
+  classCCount: number
+}
+
+export interface AlternativeWarehouseAvailability {
+  warehouseId: string
+  warehouseName: string
+  city: string
+  availableStock: number
+  surplusAboveThreshold: number
+  distanceKm: number
+  estimatedTransitHours: number
+}
+
+export interface CrossWarehouseShortageItem {
+  skuId: string
+  skuName?: string
+  category?: string
+  targetWarehouseId: string
+  targetWarehouseName: string
+  targetAvailableStock: number
+  targetReorderPoint: number
+  totalNetworkAvailableStock: number
+  alternativeWarehouses: AlternativeWarehouseAvailability[]
+  bestAlternative?: AlternativeWarehouseAvailability
+}
+
+export interface TransferDiscrepancyRecord {
+  id: string
+  type: 'transfer' | 'goods_receipt'
+  referenceId: string
+  skuId: string
+  skuName?: string
+  sourceWarehouseId: string
+  destinationWarehouseId: string
+  deliveredOrExpected: number
+  acceptedOrReceived: number
+  discrepancyQuantity: number
+  reason: string
+  timestamp: string
+}
+

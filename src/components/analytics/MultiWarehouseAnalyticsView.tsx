@@ -35,7 +35,7 @@ import {
 import { calculateSkuDemandProfiles } from '../../data/demandIntelligenceEngine'
 import { getStockStatus } from '../../data/inventoryUtils'
 import { getWarehouseDistanceKm, getEstimatedTransitHours } from '../../data/multiWarehouseData'
-import type { AnalyticsFilterState, CrossWarehouseShortageItem } from '../../types'
+import type { AnalyticsFilterState, CrossWarehouseShortageItem, StorageZoneOccupancy } from '../../types'
 
 export function MultiWarehouseAnalyticsView() {
   const warehouses = useAppStore((state) => state.warehouses)
@@ -161,7 +161,7 @@ export function MultiWarehouseAnalyticsView() {
     key: K,
     value: AnalyticsFilterState[K]
   ) {
-    setFilters((prev) => ({ ...prev, [key]: value }))
+    setFilters((prev: AnalyticsFilterState) => ({ ...prev, [key]: value }))
   }
 
   function handleResetFilters() {
@@ -616,7 +616,7 @@ export function MultiWarehouseAnalyticsView() {
                 <div className="zone-occupancy-section">
                   <h5>Storage-Zone Occupancy:</h5>
                   <div className="zone-pills-row">
-                    {wh.zoneBreakdown.map((z) => (
+                    {wh.zoneBreakdown.map((z: StorageZoneOccupancy) => (
                       <div
                         key={z.zone}
                         className={`zone-pill-box ${z.isGoldenZone ? 'golden-zone' : ''}`}
