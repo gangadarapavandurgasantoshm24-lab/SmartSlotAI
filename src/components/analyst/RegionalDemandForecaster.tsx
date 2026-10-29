@@ -229,6 +229,12 @@ const seasonalScenarios: SeasonalScenario[] = [
   },
 ]
 
+function computeExpectedDate(daysAhead: number): string {
+  const target = new Date()
+  target.setDate(target.getDate() + daysAhead)
+  return target.toISOString().slice(0, 10)
+}
+
 export const RegionalDemandForecaster: FC = () => {
   const [activeSeason, setActiveSeason] = useState<SeasonId>('winter')
   const [poDispatchSuccess, setPoDispatchSuccess] = useState('')
@@ -242,7 +248,7 @@ export const RegionalDemandForecaster: FC = () => {
       binId: item.bin,
       quantity: item.suggestedPO,
       supplier: item.supplier,
-      expectedDate: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+      expectedDate: computeExpectedDate(3),
       note: `Seasonal Weather Surge PO: ${currentScenario.name}. Order quantity boosted +${item.suggestedPO} units for regional fulfillment.`,
     })
 

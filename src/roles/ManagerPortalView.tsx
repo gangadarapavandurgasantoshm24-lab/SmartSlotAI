@@ -1,7 +1,11 @@
 import { useState } from 'react'
-import { AlertCircle, Box, Boxes, Check, ClipboardCheck, Clock3, LayoutDashboard, Send, Shield, Sparkles, Truck, User, Warehouse, Zap } from 'lucide-react'
+import { AlertCircle, BarChart3, Box, Boxes, Building2, Check, ClipboardCheck, Clock3, LayoutDashboard, Send, Shield, Sparkles, TrendingUp, Truck, User, Warehouse, Zap } from 'lucide-react'
 import type { FC } from 'react'
 import { RoleSwitcherBar } from '../components/RoleSwitcherBar'
+import { InventoryManagementView } from '../components/inventory/InventoryManagementView'
+import { DemandIntelligenceView } from '../components/analyst/DemandIntelligenceView'
+import { MultiWarehouseNetworkView } from '../components/warehouse/MultiWarehouseNetworkView'
+import { MultiWarehouseAnalyticsView } from '../components/analytics/MultiWarehouseAnalyticsView'
 import { DigitalTwinScreen } from '../screens/DigitalTwinScreen'
 import { OptimizationLabScreen } from '../screens/OptimizationLabScreen'
 import { SuppliersScreen } from '../screens/SuppliersScreen'
@@ -12,7 +16,7 @@ import { getAvailableQuantity, getBoxId } from '../data/inventoryUtils'
 import { Badge, Button, Card, PageHeader } from '../components/ui'
 
 export const ManagerPortalView: FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'replenishment' | 'dispatch-picker' | 'co-placement' | 'optimization'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'inventory' | 'demand-intelligence' | 'network' | 'warehouse' | 'replenishment' | 'dispatch-picker' | 'co-placement' | 'optimization' | 'analytics'>('dashboard')
   const requests = useAppStore((state) => state.replenishmentRequests)
   const pendingInTransit = requests.filter((r) => r.status === 'In transit').length
   const order = useAppStore((state) => state.pickOrder)
@@ -94,6 +98,27 @@ export const ManagerPortalView: FC = () => {
           <span>Dashboard Overview</span>
         </button>
         <button
+          className={`manager-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
+          onClick={() => setActiveTab('inventory')}
+        >
+          <Boxes size={15} />
+          <span>Inventory Master (CRUD)</span>
+        </button>
+        <button
+          className={`manager-tab-btn ${activeTab === 'demand-intelligence' ? 'active' : ''}`}
+          onClick={() => setActiveTab('demand-intelligence')}
+        >
+          <TrendingUp size={15} />
+          <span>Demand Intelligence & Pareto</span>
+        </button>
+        <button
+          className={`manager-tab-btn ${activeTab === 'network' ? 'active' : ''}`}
+          onClick={() => setActiveTab('network')}
+        >
+          <Building2 size={15} />
+          <span>Multi-Warehouse Network</span>
+        </button>
+        <button
           className={`manager-tab-btn ${activeTab === 'warehouse' ? 'active' : ''}`}
           onClick={() => setActiveTab('warehouse')}
         >
@@ -131,13 +156,24 @@ export const ManagerPortalView: FC = () => {
           <Zap size={15} />
           <span>Optimization Lab & Approvals</span>
         </button>
+        <button
+          className={`manager-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('analytics')}
+        >
+          <BarChart3 size={15} />
+          <span>Multi-Warehouse Analytics</span>
+        </button>
       </div>
 
       <main className="character-main">
         {activeTab === 'dashboard' && <ScreenContent screen="dashboard" />}
+        {activeTab === 'inventory' && <InventoryManagementView />}
+        {activeTab === 'demand-intelligence' && <DemandIntelligenceView />}
+        {activeTab === 'network' && <MultiWarehouseNetworkView />}
         {activeTab === 'warehouse' && <DigitalTwinScreen />}
         {activeTab === 'replenishment' && <SuppliersScreen />}
         {activeTab === 'optimization' && <OptimizationLabScreen />}
+        {activeTab === 'analytics' && <MultiWarehouseAnalyticsView />}
 
         {activeTab === 'dispatch-picker' && (
           <div className="dispatch-picker-layout">

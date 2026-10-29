@@ -23,6 +23,12 @@ interface BinDetailModalProps {
   onReplenish?: (skuId: string, binId: string) => void
 }
 
+function computeReplenishExpectedDate(daysAhead: number): string {
+  const target = new Date()
+  target.setDate(target.getDate() + daysAhead)
+  return target.toISOString().slice(0, 10)
+}
+
 export const BinDetailModal: FC<BinDetailModalProps> = ({
   binId,
   onClose,
@@ -34,16 +40,17 @@ export const BinDetailModal: FC<BinDetailModalProps> = ({
   const dispatchPickTask = useAppStore((state) => state.dispatchPickTask)
   const createReplenishmentRequest = useAppStore((state) => state.createReplenishmentRequest)
   const movements = useAppStore((state) => state.movements)
+  const storeSkus = useAppStore((state) => state.skus)
+  const allSkus = storeSkus?.length ? storeSkus : skus
 
   if (!binId) return null
 
   const bin = bins.find((b) => b.id === binId)
   if (!bin) return null
-
   const stock = inventory.find((i) => i.binId === binId)
-  const sku = skus.find((s) => s.id === stock?.skuId || s.id === bin.skuId)
+  const sku = allSkus.find((s) => s.id === stock?.skuId || s.id === bin.skuId)
   const available = stock ? getAvailableQuantity(stock) : 0
-  const status = stock ? getStockStatus(stock) : 'Unavailable'
+  const status = stock ? getStockStatus(stock) : 'Empty'
   const boxId = getBoxId(bin.id, bin.level ?? 1, bin.face === 'back' ? 'B' : 'F')
   const utilization = stock ? Math.round((stock.quantity / stock.capacity) * 100) : 0
   const recentMovement = movements.find((m) => m.binId === binId)
@@ -72,7 +79,7 @@ export const BinDetailModal: FC<BinDetailModalProps> = ({
       binId: bin.id,
       quantity: 20,
       supplier: sku.supplier,
-      expectedDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+      expectedDate: computeReplenishExpectedDate(2),
       note: 'Auto-requested from 3D Rack Box Inspector',
     })
     if (onReplenish) onReplenish(sku.id, bin.id)
@@ -131,7 +138,7 @@ export const BinDetailModal: FC<BinDetailModalProps> = ({
                 SKU CODE: <strong>{sku?.id ?? 'N/A'}</strong>
               </span>
             </div>
-            <h4>{sku?.name ?? 'Unassigned Storage Box'}</h4>
+            <h4>{sku?.name ?? 'Empty Storage Box (Available)'}</h4>
             <div className="prod-meta-row">
               <span>Category: <strong>{sku?.category ?? 'General'}</strong></span>
               <span>Supplier: <strong>{sku?.supplier ?? 'Vendor Network'}</strong></span>

@@ -1,9 +1,19 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Check, MapPin, Package, ShieldCheck, Truck, Warehouse } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  MapPin,
+  Package,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+  Warehouse,
+} from 'lucide-react'
 import type { FC } from 'react'
 import { RoleSwitcherBar } from '../components/RoleSwitcherBar'
 import { WarehouseScene } from '../components/digital-twin/WarehouseScene'
 import { skus } from '../data/mockData'
+import { DEMO_REPLENISHMENT_DISCLAIMER } from '../data/intelligentReplenishmentEngine'
 import { useAppStore } from '../store/useAppStore'
 import type { ReplenishmentRequest, SupplierResponseKind } from '../types'
 import { Badge, Button, Card, PageHeader } from '../components/ui'
@@ -94,6 +104,13 @@ export const SupplierPortalView: FC = () => {
           }
         />
 
+        <div className="replenishment-disclaimer-banner">
+          <Sparkles size={15} />
+          <span>
+            <strong>Simulated B2B Vendor Telemetry:</strong> {DEMO_REPLENISHMENT_DISCLAIMER}
+          </span>
+        </div>
+
         {message && (
           <div className={`replenishment-toast ${message.ok ? 'ok' : 'error'}`} role="status">
             {message.ok ? <Check size={14} /> : <AlertTriangle size={14} />} {message.text}
@@ -144,7 +161,14 @@ export const SupplierPortalView: FC = () => {
                       }}
                     >
                       <div className="order-item-header">
-                        <strong>{req.id}</strong>
+                        <div className="order-item-tags">
+                          <strong>{req.id}</strong>
+                          {req.urgency && (
+                            <span className={`urgency-pill ${req.urgency}`}>
+                              {req.urgency.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                         <Badge>{req.status}</Badge>
                       </div>
                       <div className="order-item-body">
@@ -234,6 +258,12 @@ export const SupplierPortalView: FC = () => {
                     >
                       <Truck size={14} /> Dispatch Shipment (In Transit)
                     </Button>
+                  </div>
+
+                  <div className="supplier-dispatch-hint">
+                    <small>
+                      Goods remain in transit until physically accepted at DC receiving dock. Dispatching updates shipment status only.
+                    </small>
                   </div>
                 </div>
               </Card>

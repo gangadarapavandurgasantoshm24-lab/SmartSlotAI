@@ -129,8 +129,15 @@ function createRoleSyncPlugin(role) {
       server.middlewares.use((req, res, next) => {
         const url = req.url?.split('?')[0]
 
-        // Handle CORS
-        res.setHeader('Access-Control-Allow-Origin', '*')
+        // Handle CORS safely: only allow local development origins
+        const origin = req.headers.origin || ''
+        const isLocalOrigin = !origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+
+        if (isLocalOrigin) {
+          res.setHeader('Access-Control-Allow-Origin', origin || '*')
+        } else {
+          res.setHeader('Access-Control-Allow-Origin', 'null')
+        }
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
@@ -181,13 +188,45 @@ function createRoleSyncPlugin(role) {
         }
 
         if (url === '/api/mongodb/connect' && req.method === 'POST') {
+          if (!isLocalOrigin) {
+            res.writeHead(403, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'Forbidden: External or cross-origin access is rejected.' }))
+            return
+          }
+
           let body = ''
           req.on('data', (c) => { body += c })
           req.on('end', async () => {
             try {
-              const { uri, dbName } = JSON.parse(body)
-              if (dbName) mongoLogger.dbName = dbName
-              const result = await mongoLogger.connect(uri)
+              const { uri, dbName } = JSON.parse(body || '{}')
+              // Prefer server-side configuration from .env if uri is omitted
+              const targetUri = uri ? uri.trim() : (process.env.MONGODB_URI || '')
+              if (!targetUri) {
+                res.writeHead(400, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ ok: false, error: 'No MongoDB URI configured in server .env or provided.' }))
+                return
+              }
+
+              // Disallow dangerous schemes or internal network scanning
+              if (!targetUri.startsWith('mongodb+srv://') && !targetUri.startsWith('mongodb://')) {
+                res.writeHead(400, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ ok: false, error: 'Invalid MongoDB connection scheme. Must start with mongodb:// or mongodb+srv://' }))
+                return
+              }
+
+              const isAtlasCloud = targetUri.includes('.mongodb.net')
+              const isLocalhost = targetUri.startsWith('mongodb://localhost') || targetUri.startsWith('mongodb://127.0.0.1')
+              if (!isAtlasCloud && !isLocalhost) {
+                const privateIpPatterns = [/169\.254\./, /10\.\d+\./, /192\.168\./, /172\.(1[6-9]|2\d|3[01])\./, /0\.0\.0\.0/]
+                if (privateIpPatterns.some(p => p.test(targetUri))) {
+                  res.writeHead(403, { 'Content-Type': 'application/json' })
+                  res.end(JSON.stringify({ ok: false, error: 'Forbidden: Internal network and cloud metadata IP targets are blocked.' }))
+                  return
+                }
+              }
+
+              if (dbName) mongoLogger.dbName = dbName.trim()
+              const result = await mongoLogger.connect(targetUri)
               res.writeHead(200, { 'Content-Type': 'application/json' })
               res.end(JSON.stringify({ ...result, status: mongoLogger.getStatus() }))
             } catch (err) {

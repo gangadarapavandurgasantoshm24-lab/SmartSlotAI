@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, Box, Crosshair, Minus, Plus, RotateCcw, Search, Truck, ZoomIn, ZoomOut } from 'lucide-react'
-import { skus, warehouses } from '../data/mockData'
+import { AlertTriangle, Box, Building2, Crosshair, Minus, Plus, RotateCcw, Search, ZoomIn, ZoomOut } from 'lucide-react'
+import { skus } from '../data/mockData'
 import { getAvailableQuantity, getStockStatus, searchWarehouseBins } from '../data/inventoryUtils'
 import { getIncomingQuantity } from '../data/replenishmentUtils'
 import { useAppStore } from '../store/useAppStore'
@@ -17,19 +17,36 @@ export function DigitalTwinScreen() {
   const receiveStock = useAppStore((state) => state.receiveStock)
   const movements = useAppStore((state) => state.movements)
   const replenishmentRequests = useAppStore((state) => state.replenishmentRequests)
+  const warehouses = useAppStore((state) => state.warehouses)
+  const selectedWarehouseId = useAppStore((state) => state.selectedWarehouseId)
+  const setSelectedWarehouseId = useAppStore((state) => state.setSelectedWarehouseId)
+
   const [query, setQuery] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [message, setMessage] = useState<{ text: string; success: boolean } | null>(null)
   const [resetVersion, setResetVersion] = useState(0)
   const [zoomVersion, setZoomVersion] = useState(0)
   const [focusVersion, setFocusVersion] = useState(0)
-  const selectedBin = bins.find((bin) => bin.id === selectedBinId)
-  const selectedStock = inventory.find((item) => item.binId === selectedBinId)
-  const selectedSku = selectedBin ? skus.find((sku) => sku.id === selectedStock?.skuId) : undefined
-  const stockByBin = useMemo(() => new Map(inventory.map((item) => [item.binId, item])), [inventory])
-  const results = useMemo(() => searchWarehouseBins(query, bins, inventory, skus), [bins, inventory, query])
+
+  // Filter bins and inventory strictly to the selected warehouse
+  const activeBins = useMemo(
+    () => bins.filter((b) => (b.warehouseId || 'WH-HYD-01') === selectedWarehouseId),
+    [bins, selectedWarehouseId]
+  )
+  const activeInventory = useMemo(
+    () => inventory.filter((i) => (i.warehouseId || 'WH-HYD-01') === selectedWarehouseId),
+    [inventory, selectedWarehouseId]
+  )
+
+  const selectedBin = activeBins.find((bin) => bin.id === selectedBinId)
+  const storeSkus = useAppStore((state) => state.skus)
+  const allSkus = storeSkus?.length ? storeSkus : skus
+  const selectedStock = activeInventory.find((item) => item.binId === selectedBinId)
+  const selectedSku = selectedBin ? allSkus.find((sku) => sku.id === selectedStock?.skuId) : undefined
+  const stockByBin = useMemo(() => new Map(activeInventory.map((item) => [item.binId, item])), [activeInventory])
+  const results = useMemo(() => searchWarehouseBins(query, activeBins, activeInventory, allSkus), [activeBins, activeInventory, allSkus, query])
   const amount = Number(quantity)
-  const warehouse = warehouses[0]
+  const currentWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || warehouses[0]
   const currentMovement = movements.find((movement) => movement.binId === selectedBinId)
 
   function runStockAction(action: 'pick' | 'receive') {
@@ -45,29 +62,91 @@ export function DigitalTwinScreen() {
     setMessage(null)
   }
 
+  function handleWarehouseChange(newWarehouseId: string) {
+    setSelectedWarehouseId(newWarehouseId)
+    setQuery('')
+    setMessage(null)
+    setResetVersion((v) => v + 1)
+  }
+
   function adjustZoom(direction: -1 | 1) { setZoomVersion((version) => version + direction) }
 
   return <>
-    <PageHeader title="3D Warehouse" description="Explore your digital twin. Locate stock and plan every move." action={<Button variant="secondary" disabled title="Warehouse settings are not available in this demo"><Truck size={14}/> Warehouse settings</Button>} />
-    {bins.length === 0 ? <div className="twin-empty"><Box size={25}/><strong>Warehouse layout is empty</strong><span>Add bin records to populate the digital twin.</span></div> : <div className="digital-twin-grid">
-      <Card title="Warehouse digital twin" subtitle={`${warehouse.location} · ${warehouse.zones} zones · ${bins.length} storage bins`} className="digital-twin-card">
+    <PageHeader
+      title="3D Warehouse Digital Twin"
+      description="Inspect warehouse geometry, bin capacity, and real-time stock levels across facility network."
+      action={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Building2 size={15} style={{ color: '#00e5ff' }} />
+          <select
+            value={selectedWarehouseId}
+            onChange={(e) => handleWarehouseChange(e.target.value)}
+            className="warehouse-switcher-select"
+            aria-label="Select warehouse facility"
+            style={{
+              background: '#0e1823',
+              color: '#dbeafe',
+              border: '1px solid #1e3a5f',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.id} · {w.name} ({w.city})
+              </option>
+            ))}
+          </select>
+        </div>
+      }
+    />
+    {activeBins.length === 0 ? <div className="twin-empty"><Box size={25}/><strong>Warehouse layout is empty</strong><span>Add bin records to populate the digital twin for {currentWarehouse.name}.</span></div> : <div className="digital-twin-grid">
+      <Card
+        title={`${currentWarehouse.name} (${currentWarehouse.city})`}
+        subtitle={`${currentWarehouse.type || 'Distribution Center'} · ${currentWarehouse.location} · ${activeBins.length} bins · Status: ${currentWarehouse.status || 'Active'}`}
+        className="digital-twin-card"
+      >
         <div className="twin-search-row">
-          <div className="twin-search"><Search size={15}/><span className="search-prefix">SKU / Bin ID</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search warehouse locations or SKUs" aria-label="Search by bin ID or SKU"/><span className="result-count">{query ? `${results.length} found` : ''}</span>{query && <button aria-label="Clear search" onClick={() => setQuery('')}>×</button>}
-            {query && <div className="search-results">{results.length ? results.map((bin) => { const stock = stockByBin.get(bin.id); const sku = skus.find((entry) => entry.id === stock?.skuId); return <button key={bin.id} onClick={() => chooseBin(bin)}><span><b>{bin.id}</b><small>{sku?.id} · {sku?.name}</small></span><Badge>{stock ? getStockStatus(stock) : 'Unavailable'}</Badge></button> }) : <div className="search-no-results">No matching bins or SKUs.</div>}</div>}
+          <div className="twin-search"><Search size={15}/><span className="search-prefix">SKU / Bin ID</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${currentWarehouse.city} locations or SKUs`} aria-label="Search by bin ID or SKU"/><span className="result-count">{query ? `${results.length} found` : ''}</span>{query && <button aria-label="Clear search" onClick={() => setQuery('')}>×</button>}
+            {query && <div className="search-results">{results.length ? results.map((bin) => { const stock = stockByBin.get(bin.id); const sku = allSkus.find((entry) => entry.id === stock?.skuId); return <button key={bin.id} onClick={() => chooseBin(bin)}><span><b>{bin.id}</b><small>{sku?.id} · {sku?.name}</small></span><Badge>{stock ? getStockStatus(stock) : 'Unavailable'}</Badge></button> }) : <div className="search-no-results">No matching bins or SKUs in this warehouse.</div>}</div>}
           </div>
           <Button onClick={() => selectedBin && setFocusVersion((version) => version + 1)}><Crosshair size={14}/> Locate bin</Button>
           <button className="twin-tool-button" onClick={() => { setResetVersion((version) => version + 1); setMessage(null) }}><RotateCcw size={14}/> Reset view</button>
           <div className="zoom-tools"><button aria-label="Zoom in" onClick={() => adjustZoom(1)}><ZoomIn size={15}/></button><button aria-label="Zoom out" onClick={() => adjustZoom(-1)}><ZoomOut size={15}/></button></div>
         </div>
-        <div className="twin-canvas"><WarehouseScene bins={bins} inventory={inventory} selectedBinId={selectedBinId} onSelect={(id) => { const bin = bins.find((entry) => entry.id === id); if (bin) chooseBin(bin) }} resetVersion={resetVersion} zoomVersion={zoomVersion} focusVersion={focusVersion} focusBin={selectedBin}/><div className="scene-help">Drag to orbit · Right drag to pan · Scroll to zoom</div><div className="scene-view-label">ISOMETRIC VIEW <span>·</span> {bins.length} BINS</div><div className="scene-status"><i/> LIVE INVENTORY</div></div>
+        <div className="twin-canvas">
+          <WarehouseScene
+            bins={activeBins}
+            inventory={activeInventory}
+            selectedBinId={selectedBinId}
+            onSelect={(id) => {
+              const bin = activeBins.find((entry) => entry.id === id)
+              if (bin) chooseBin(bin)
+            }}
+            resetVersion={resetVersion}
+            zoomVersion={zoomVersion}
+            focusVersion={focusVersion}
+            focusBin={selectedBin}
+          />
+          <div className="scene-help">Drag to orbit · Right drag to pan · Scroll to zoom</div>
+          <div className="scene-view-label">{currentWarehouse.id} <span>·</span> {activeBins.length} BINS</div>
+          <div className="scene-status"><i/> LIVE INVENTORY</div>
+        </div>
         <div className="twin-legend"><span><i className="legend-healthy"/> Healthy</span><span><i className="legend-low"/> Low stock</span><span><i className="legend-empty"/> Empty</span><span><i className="legend-unavailable"/> Unavailable</span><span><i className="legend-selected"/> Selected</span></div>
-        <div className="twin-route"><span className="route-icon"><Crosshair size={16}/></span><span><b>Warehouse navigation</b><small>{selectedBin ? `Selected location · ${selectedBin.id} · Zone ${selectedBin.zone}` : 'Select any bin to inspect its inventory'}</small></span><span className="route-distance">Orbit and zoom to explore</span></div>
+        <div className="twin-route"><span className="route-icon"><Crosshair size={16}/></span><span><b>Warehouse navigation</b><small>{selectedBin ? `Selected location · ${selectedBin.id} · Zone ${selectedBin.zone}` : 'Select any bin in ' + currentWarehouse.name + ' to inspect inventory'}</small></span><span className="route-distance">Orbit and zoom to explore</span></div>
       </Card>
-      <Card title="Bin inspector" subtitle="Selected location" className="bin-inspector">
-        {!selectedBin ? <div className="inspector-empty"><Box size={22}/><b>Bin could not be loaded</b><span>Select a bin in the scene or search by its ID.</span></div> : !selectedStock ? <div className="inspector-empty error"><AlertTriangle size={22}/><b>Inventory record unavailable</b><span>No shared stock record is linked to {selectedBin.id}.</span></div> : <Inspector bin={selectedBin} stock={selectedStock} sku={selectedSku} incoming={replenishmentRequests.filter((request) => request.binId === selectedBin.id).reduce((sum, request) => sum + getIncomingQuantity(request), 0)} quantity={quantity} setQuantity={setQuantity} message={message} currentMovement={currentMovement} onAction={runStockAction}/>}
+      <Card title="Bin inspector" subtitle={`Selected location at ${currentWarehouse.id}`} className="bin-inspector">
+        {!selectedBin ? <div className="inspector-empty"><Box size={22}/><b>No bin selected</b><span>Select a bin in the 3D scene or search above to view details.</span></div> : !selectedStock ? <div className="inspector-empty"><Box size={22}/><b>Empty Storage Bin</b><span>Location {selectedBin.id} is available for SKU allocation (Capacity: {selectedBin.capacity} units, Max Weight: {selectedBin.optimizationConstraints?.maxWeightKg ?? 25} kg).</span></div> : <Inspector bin={selectedBin} stock={selectedStock} sku={selectedSku} incoming={replenishmentRequests.filter((request) => request.binId === selectedBin.id).reduce((sum, request) => sum + getIncomingQuantity(request), 0)} quantity={quantity} setQuantity={setQuantity} message={message} currentMovement={currentMovement} onAction={runStockAction}/>}
       </Card>
     </div>}
-    <div className="metric-grid three twin-metrics"><Metric label="Total locations" value={bins.length.toLocaleString()} note="Across the modeled warehouse"/><Metric label="Units on hand" value={inventory.reduce((sum, item) => sum + item.quantity, 0).toLocaleString()} note="Inventory linked to bin records" tone="green"/><Metric label="Flagged locations" value={inventory.filter((item) => ['Low stock', 'Empty', 'Unavailable'].includes(getStockStatus(item))).length.toString()} note="Low stock · empty · unavailable" tone="amber"/></div>
+    <div className="metric-grid three twin-metrics">
+      <Metric label="Warehouse locations" value={activeBins.length.toLocaleString()} note={`Bins active in ${currentWarehouse.name}`}/>
+      <Metric label="Units on hand" value={activeInventory.reduce((sum, item) => sum + item.quantity, 0).toLocaleString()} note="Local warehouse physical inventory" tone="green"/>
+      <Metric label="Flagged locations" value={activeInventory.filter((item) => ['Low stock', 'Empty', 'Unavailable'].includes(getStockStatus(item))).length.toString()} note="Low stock · empty · unavailable" tone="amber"/>
+    </div>
   </>
 }
 

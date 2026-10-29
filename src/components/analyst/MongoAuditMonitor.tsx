@@ -84,13 +84,41 @@ export const MongoAuditMonitor: FC = () => {
   }
 
   useEffect(() => {
-    fetchStatus()
-    fetchLogs()
+    let mounted = true
+
+    const poll = async () => {
+      try {
+        const [statusRes, logsRes] = await Promise.allSettled([
+          fetch('/api/mongodb/status'),
+          fetch('/api/mongodb/logs'),
+        ])
+
+        if (!mounted) return
+
+        if (statusRes.status === 'fulfilled' && statusRes.value.ok) {
+          const data = await statusRes.value.json()
+          if (mounted) setStatus(data)
+        }
+
+        if (logsRes.status === 'fulfilled' && logsRes.value.ok) {
+          const data = await logsRes.value.json()
+          if (mounted) {
+            setLogs(data.logs || [])
+            if (data.status) setStatus(data.status)
+          }
+        }
+      } catch {}
+    }
+
+    void poll()
     const timer = setInterval(() => {
-      fetchStatus()
-      fetchLogs()
+      void poll()
     }, 4000)
-    return () => clearInterval(timer)
+
+    return () => {
+      mounted = false
+      clearInterval(timer)
+    }
   }, [])
 
   async function handleConnect(e: React.FormEvent) {

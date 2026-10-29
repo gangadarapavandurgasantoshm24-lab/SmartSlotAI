@@ -1,6 +1,7 @@
 import type { Bin, InventoryItem, OptimizationResult, PickOrder, PickingTask, SKU, SupplierRequest, Warehouse } from '../types'
+import { demoWarehouses } from './multiWarehouseData'
 
-export const warehouses: Warehouse[] = [{ id: 'WH-01', name: 'Brazilian E-Commerce Fulfillment Hub', location: 'São Paulo Logistics DC', zones: 4, capacity: 18400, utilization: 78.4 }]
+export const warehouses: Warehouse[] = demoWarehouses
 export const skus: SKU[] = [
   { id: 'SKU-2084', name: 'Furniture Decor · Luminary (aca2eb7d)', category: 'Furniture Decor', unit: 'box', reorderPoint: 60, supplier: 'Mobly Decor / Olist', optimizationProfile: { weeklyPickFrequency: 527, demandClass: 'A', dimensionsCm: [30, 25, 15], weightKg: 0.5, handling: 'standard', affinitySkuIds: ['SKU-1102', 'SKU-3401'] } },
   { id: 'SKU-1102', name: 'Bed Bath Table · Duvet Set (99a4788c)', category: 'Bed Bath Table', unit: 'roll', reorderPoint: 30, supplier: 'Santista / Olist', optimizationProfile: { weeklyPickFrequency: 488, demandClass: 'A', dimensionsCm: [34, 29, 16], weightKg: 0.8, handling: 'standard', affinitySkuIds: ['SKU-2084', 'SKU-3401'] } },
@@ -8,12 +9,12 @@ export const skus: SKU[] = [
   { id: 'SKU-0917', name: 'Computers · Fast USB Hub (d1c42706)', category: 'Computers & Accessories', unit: 'roll', reorderPoint: 16, supplier: 'Multilaser / Olist', optimizationProfile: { weeklyPickFrequency: 343, demandClass: 'C', dimensionsCm: [50, 30, 35], weightKg: 2.1, handling: 'standard', affinitySkuIds: ['SKU-3401'] } },
 ]
 export const bins: Bin[] = [
-  { id: 'A-01-01', zone: 'A', skuId: 'SKU-2084', quantity: 46, capacity: 72, status: 'Healthy', x: 0, y: 0, aisle: 1, bay: 1, level: 1, face: 'front' },
-  { id: 'A-02-03', zone: 'A', skuId: 'SKU-1102', quantity: 12, capacity: 54, status: 'Low stock', x: 1, y: 0, aisle: 2, bay: 3, level: 1, face: 'front' },
-  { id: 'B-04-01', zone: 'B', skuId: 'SKU-2084', quantity: 8, capacity: 72, status: 'Critical', x: 2, y: 1, aisle: 4, bay: 1, level: 1, face: 'front' },
-  { id: 'C-06-02', zone: 'C', skuId: 'SKU-2084', quantity: 12, capacity: 300, status: 'Healthy', x: 3, y: 1, aisle: 6, bay: 2, level: 2, face: 'front' },
-  { id: 'D-02-04', zone: 'D', skuId: 'SKU-0917', quantity: 19, capacity: 36, status: 'Healthy', x: 4, y: 0, aisle: 2, bay: 4, level: 1, face: 'front' },
-  { id: 'E-01-02', zone: 'E', skuId: 'SKU-1102', quantity: 0, capacity: 54, status: 'Critical', x: 5, y: 1, aisle: 1, bay: 2, level: 1, face: 'front' },
+  { id: 'A-01-01', warehouseId: 'WH-HYD-01', zone: 'A', skuId: 'SKU-2084', quantity: 46, capacity: 72, status: 'Healthy', x: 0, y: 0, aisle: 1, bay: 1, level: 1, face: 'front' },
+  { id: 'A-02-03', warehouseId: 'WH-HYD-01', zone: 'A', skuId: 'SKU-1102', quantity: 12, capacity: 54, status: 'Low stock', x: 1, y: 0, aisle: 2, bay: 3, level: 1, face: 'front' },
+  { id: 'B-04-01', warehouseId: 'WH-HYD-01', zone: 'B', skuId: 'SKU-2084', quantity: 8, capacity: 72, status: 'Critical', x: 2, y: 1, aisle: 4, bay: 1, level: 1, face: 'front' },
+  { id: 'C-06-02', warehouseId: 'WH-HYD-01', zone: 'C', skuId: 'SKU-2084', quantity: 12, capacity: 300, status: 'Healthy', x: 3, y: 1, aisle: 6, bay: 2, level: 2, face: 'front' },
+  { id: 'D-02-04', warehouseId: 'WH-HYD-01', zone: 'D', skuId: 'SKU-0917', quantity: 19, capacity: 36, status: 'Healthy', x: 4, y: 0, aisle: 2, bay: 4, level: 1, face: 'front' },
+  { id: 'E-01-02', warehouseId: 'WH-HYD-01', zone: 'E', skuId: 'SKU-1102', quantity: 0, capacity: 54, status: 'Critical', x: 5, y: 1, aisle: 1, bay: 2, level: 1, face: 'front' },
 ]
 const stockLocations = bins.map((bin) => ({ ...bin }))
 const reserved = [4, 2, 3, 6, 0, 0]
@@ -27,7 +28,7 @@ for (let aisle = 1; aisle <= 6; aisle += 1) {
         const sku = skus[(aisle * 3 + bay + level + (face === 'back' ? 1 : 0)) % skus.length]
         const quantity = ((aisle * 17 + bay * 13 + level * 7 + (face === 'back' ? 5 : 0)) % 58)
         const id = `${zone}-${String(aisle).padStart(2, '0')}-${String(bay).padStart(2, '0')}-L${level}${face === 'front' ? 'F' : 'B'}`
-        stockLocations.push({ id, zone, skuId: sku.id, quantity, capacity: 48, status: 'Healthy', x: aisle - 1, y: bay - 1, aisle, bay, level, face })
+        stockLocations.push({ id, warehouseId: 'WH-HYD-01', zone, skuId: sku.id, quantity, capacity: 48, status: 'Healthy', x: aisle - 1, y: bay - 1, aisle, bay, level, face })
         stockSeed.push({ bin: stockLocations[stockLocations.length - 1], quantity, capacity: 48, reorderPoint: sku.reorderPoint, reserved: Math.min(quantity, (aisle + bay + level) % 5) })
       }
     }
@@ -55,7 +56,7 @@ for (const bin of warehouseBins) {
   }
   bin.optimizationConstraints = { dimensionsCm: oversizeBay ? [300, 200, 200] : [60, 40, 40], maxWeightKg: oversizeBay ? 250 : heavyBay ? 50 : 25, handlingCapabilities: oversizeBay ? ['oversize'] : ['standard'], certifiedHazards: [], goldenZone: (bin.zone === 'A' || bin.zone === 'B') && (bin.level ?? 1) <= 2, source: 'demo estimate' }
 }
-export const inventory: InventoryItem[] = stockSeed.map(({ bin, quantity, capacity, reorderPoint, reserved: held }) => ({ skuId: bin.skuId, binId: bin.id, quantity, reserved: bin.id === 'C-06-02' ? 0 : held, updated: 'Today, 09:42', capacity, reorderPoint: bin.id === 'C-06-02' ? 10 : reorderPoint, available: !(bin.aisle === 6 && bin.bay === 6 && bin.level === 3 && bin.face === 'back') }))
+export const inventory: InventoryItem[] = stockSeed.map(({ bin, quantity, capacity, reorderPoint, reserved: held }) => ({ warehouseId: 'WH-HYD-01', skuId: bin.skuId, binId: bin.id, quantity, reserved: bin.id === 'C-06-02' ? 0 : held, updated: 'Today, 09:42', capacity, reorderPoint: bin.id === 'C-06-02' ? 10 : reorderPoint, available: !(bin.aisle === 6 && bin.bay === 6 && bin.level === 3 && bin.face === 'back') }))
 export const pickingTasks: PickingTask[] = [
   { id: 'PK-3892', priority: 'High', status: 'In progress', items: 8, stops: 4, picker: 'Alex Morgan', due: '10:30 AM' },
   { id: 'PK-3891', priority: 'Normal', status: 'Ready', items: 12, stops: 6, picker: 'Unassigned', due: '11:00 AM' },

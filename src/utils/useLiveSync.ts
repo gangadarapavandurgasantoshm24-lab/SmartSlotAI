@@ -62,8 +62,10 @@ export function useLiveSync() {
       const issuesChanged = state.pickIssues !== prevState.pickIssues
       const alertsChanged = state.liveAlerts !== prevState.liveAlerts
       const metricsChanged = state.analystMetrics !== prevState.analystMetrics
+      const skusChanged = state.skus !== prevState.skus
+      const transfersChanged = state.transferTasks !== prevState.transferTasks
 
-      if (inventoryChanged || requestsChanged || orderChanged || movementsChanged || issuesChanged || alertsChanged || metricsChanged) {
+      if (inventoryChanged || requestsChanged || orderChanged || movementsChanged || issuesChanged || alertsChanged || metricsChanged || skusChanged || transfersChanged) {
         if (debounceTimer) clearTimeout(debounceTimer)
         debounceTimer = setTimeout(() => {
           broadcastStateChange({
@@ -75,6 +77,8 @@ export function useLiveSync() {
             lastPickResult: state.lastPickResult,
             liveAlerts: state.liveAlerts,
             analystMetrics: state.analystMetrics,
+            skus: state.skus,
+            transferTasks: state.transferTasks,
           })
         }, 30)
       }

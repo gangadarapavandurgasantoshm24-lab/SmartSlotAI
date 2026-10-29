@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Activity, BarChart3, Boxes, CheckCircle2, Compass, Database, Layers, MapPin, Server, Sparkles, TrendingUp, Truck, Warehouse } from 'lucide-react'
+import { Activity, BarChart3, Boxes, Building2, CheckCircle2, Compass, Database, Layers, MapPin, Server, Sparkles, TrendingUp, Truck, Warehouse } from 'lucide-react'
 import type { FC } from 'react'
 import { RoleSwitcherBar } from '../components/RoleSwitcherBar'
 import { WarehouseScene } from '../components/digital-twin/WarehouseScene'
@@ -7,12 +7,15 @@ import { BrazilianEdaDashboard } from '../components/analyst/BrazilianEdaDashboa
 import { MongoAuditMonitor } from '../components/analyst/MongoAuditMonitor'
 import { CoPlacementSalesLift } from '../components/analyst/CoPlacementSalesLift'
 import { RegionalDemandForecaster } from '../components/analyst/RegionalDemandForecaster'
+import { DemandIntelligenceView } from '../components/analyst/DemandIntelligenceView'
+import { MultiWarehouseNetworkView } from '../components/warehouse/MultiWarehouseNetworkView'
+import { MultiWarehouseAnalyticsView } from '../components/analytics/MultiWarehouseAnalyticsView'
 import { ScreenContent } from '../screens/Screens'
 import { useAppStore } from '../store/useAppStore'
 import { Badge, Card, Metric, PageHeader } from '../components/ui'
 
 export const AnalystPortalView: FC = () => {
-  const [activeTab, setActiveTab] = useState<'brazilian-eda' | 'co-placement' | 'regional-demand' | 'mongo-audit' | 'live-kpis' | 'studio' | 'analytics' | '3d-heatmap'>('co-placement')
+  const [activeTab, setActiveTab] = useState<'demand-intelligence' | 'network' | 'co-placement' | 'regional-demand' | 'brazilian-eda' | 'mongo-audit' | 'live-kpis' | 'studio' | 'analytics' | '3d-heatmap'>('demand-intelligence')
   const bins = useAppStore((state) => state.bins)
   const inventory = useAppStore((state) => state.inventory)
   const metrics = useAppStore((state) => state.analystMetrics)
@@ -46,6 +49,20 @@ export const AnalystPortalView: FC = () => {
       </header>
 
       <div className="manager-subnav analyst-subnav">
+        <button
+          className={`manager-tab-btn ${activeTab === 'demand-intelligence' ? 'active' : ''}`}
+          onClick={() => setActiveTab('demand-intelligence')}
+        >
+          <TrendingUp size={15} />
+          <span>📈 Demand Intelligence & Pareto (Stage 3)</span>
+        </button>
+        <button
+          className={`manager-tab-btn ${activeTab === 'network' ? 'active' : ''}`}
+          onClick={() => setActiveTab('network')}
+        >
+          <Building2 size={15} />
+          <span>🌐 Multi-Warehouse Network (Stage 4)</span>
+        </button>
         <button
           className={`manager-tab-btn ${activeTab === 'co-placement' ? 'active' : ''}`}
           onClick={() => setActiveTab('co-placement')}
@@ -105,6 +122,8 @@ export const AnalystPortalView: FC = () => {
       </div>
 
       <main className="character-main">
+        {activeTab === 'demand-intelligence' && <DemandIntelligenceView />}
+        {activeTab === 'network' && <MultiWarehouseNetworkView />}
         {activeTab === 'co-placement' && <CoPlacementSalesLift />}
         {activeTab === 'regional-demand' && <RegionalDemandForecaster />}
         {activeTab === 'brazilian-eda' && <BrazilianEdaDashboard />}
@@ -232,7 +251,7 @@ export const AnalystPortalView: FC = () => {
         )}
 
         {activeTab === 'studio' && <ScreenContent screen="analyst" />}
-        {activeTab === 'analytics' && <ScreenContent screen="analytics" />}
+        {activeTab === 'analytics' && <MultiWarehouseAnalyticsView />}
         {activeTab === '3d-heatmap' && (
           <div className="analyst-3d-layout">
             <PageHeader
