@@ -6336,3 +6336,126 @@ table td,table td strong{font-size:12px}
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
 }
+
+/* ============================================================
+   FLOATING ROLE QUICK SWITCHER DOCK
+   Enables 1-click role switching in single-domain deployments
+   ============================================================ */
+
+.role-floating-dock {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 999999;
+  font-family: inherit;
+}
+
+.dock-container {
+  display: flex;
+  flex-direction: column;
+  background: rgba(9, 14, 26, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  transition: all 0.25s ease;
+  min-width: 240px;
+}
+
+.dock-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.dock-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dock-badge-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.dock-active-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dock-roles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
+.dock-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  padding: 4px 6px 2px;
+  text-transform: uppercase;
+}
+
+.dock-role-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  color: #cbd5e1;
+}
+
+.dock-role-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.dock-role-pill.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #f8fafc;
+}
+
+.dock-pill-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.dock-role-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dock-char-name {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.dock-selected-check {
+  color: #38bdf8;
+  flex-shrink: 0;
+}
